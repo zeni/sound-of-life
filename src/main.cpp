@@ -2,7 +2,7 @@
 // by 23N! January 2009
 // last updated = 2009.01.26
 
-// Must run Darwiinmote before to use the wiimote (IR needed)
+// Must run DarwiinremoteOSC before to use the wiimote (IR needed)
 // Pd must be running to generate sound
 
 

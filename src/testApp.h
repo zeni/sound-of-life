@@ -7,7 +7,7 @@
 #include "ofAddons.h"
 #include "Spermz.h"
 
-//receiving port (from darwiinmote)
+//receiving port (from darwiinremoteOSC)
 #define PORT 5600
 //sending port (to Pd)
 #define HOST "localhost"

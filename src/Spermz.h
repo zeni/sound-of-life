@@ -16,7 +16,7 @@ class Spermz{
 	ofCvBlob blobs[MAX_NUM_CONTOURS_TO_FIND]; // blobs history
 	float x,y; // coordinate
 	int lostFrames; // number of consecutive frames of lost tracking
-	bool justSelected; // flag to know if the track was just selected (A button / mouse click)
+	bool justSelected; // flag to know if the track was just selected (A  button / mouse click)
 	int trackLength; // trace length
 	void translatePos(); // translate position by -1 of tracking array
 	int index; // index of the array of Spermz

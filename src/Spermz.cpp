@@ -10,7 +10,7 @@ Spermz::Spermz() { // constructor
 	direction=0;
  };
  
-//--------------------------------------------------------------
+//-------------------------------------------------------------
 void Spermz::initTrack(int i,int n,float rad,int col) {
     radius=rad;
 	x=y=-rad;
