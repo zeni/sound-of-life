@@ -8,3 +8,5 @@ More details: http://www.cho-yaba.com/works/soundoflife.html
 Made with OpenFrameworks (http://www.openframeworks.cc/).
 You need the OSC and openCV libraries.
 DarwiinRemoteOSC must be installed and running to use the Wiimote.
+
+The sound is generated through Pure Data (http://www.pure-data.info).
