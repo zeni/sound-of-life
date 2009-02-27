@@ -13,7 +13,7 @@
 #define HOST "localhost"
 #define PORTS 9997
 // Number of tracks
-#define NUM_SPERMZ 3
+#define NUM_SPERMZ 6
 //size of movie
 #define MOVIE_HEIGHT 480
 #define MOVIE_WIDTH 640
@@ -24,7 +24,7 @@
  // comment for not showing mouse target
 #define USE_MOUSE
 // comment for live performance (comment in main.cpp) too
-#define DEBUG
+//#define DEBUG
 
 class testApp : public ofSimpleApp{
 	public:
@@ -68,6 +68,8 @@ class testApp : public ofSimpleApp{
 		float posX,posY; // offset of movie
 		bool trace; // plot trace of tracking or not
 		bool connect; // plot connection lines or not
+		bool flip;
+		ofImage ronnie;
 };
 
 #endif

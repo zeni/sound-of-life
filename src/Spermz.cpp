@@ -19,31 +19,31 @@ void Spermz::initTrack(int i,int n,float rad,int col) {
 	proximityVector=new float[n];
 	for (int j=0;j<n;j++) proximityVector[j]=-1;
 	switch(i) {
-		case 0:
+		case 0:  // red
 			g=b=col;
 			break;
-		case 1:
+		case 1: // green
 			r=b=col;
 			break;
-		case 2:
+		case 2: // blue
 			r=g=col;
 			break;
-		case 3:
+		case 3: // cyan
 			r=col;
 			break;
-		case 4:
+		case 4: // magenta
 			g=col;
 			break;
-		case 5:
+		case 5:  // yellow
 			b=col;
 			break;
-		case 6:
+		case 6:  // white
 			r=g=b=255;
 			break;
-		case 7:
+		case 7: // gray
 			r=g=b=col;
 			break;
-		default:
+		default: // black
 			r=g=b=0;
 			break;
 	}
@@ -80,32 +80,36 @@ void Spermz::computeTrace(int i,ofCvBlob blob){
 void Spermz::computeDirection(int w){
 	if (trackLength>1) {
 		if(trackLength<w) w=trackLength;
-		float dir,mdir=0;
+		float xx=0,yy=0;
 		int ww=0;
-		for(int i=1;i<w;i++) { 
-			if((trackPos[trackLength-i][1]!=trackPos[trackLength-i-1][1])&(trackPos[trackLength-i][0]!=trackPos[trackLength-i-1][0])) {
-				dir=180/PI*atan2((trackPos[trackLength-i][1]-trackPos[trackLength-i-1][1]),trackPos[trackLength-i][0]-trackPos[trackLength-i-1][0]);
-				if(dir<0) dir+=360;
-				mdir+=dir;	
+		for(int i=1;i<w;i++) {
+			if((trackPos[trackLength-i][1]!=trackPos[trackLength-i-1][1])|(trackPos[trackLength-i][0]!=trackPos[trackLength-i-1][0])) {
+				xx+=trackPos[trackLength-i][0]-trackPos[trackLength-i-1][0];
+				yy+=trackPos[trackLength-i][1]-trackPos[trackLength-i-1][1];
 			}
 			else ww++;
 		}
-		if (ww!=w) direction=mdir/(w-ww);
+		if (ww!=w) direction=180/PI*atan2(yy/(w-ww),xx/(w-ww));
+		if (lostFrames>10) direction=0;
 	}
 }
 
 //--------------------------------------------------------------
-void Spermz::displayInfos(int w,int h) {
+void Spermz::displayInfos(ofImage ro,int w,int h,bool f) {
 	ofFill();
-	if (active) ofSetColor(r,g,b);
-	else ofSetColor(r,g,b,50);
 	glPushMatrix();
-	glTranslatef((index+1)*w/(length+1), h/2+10, 0);
-	glRotatef(direction,0,0,1);
-	// very simple model !
-	ofRect(-h/2,-1,3*h/4,2);
-	ofEllipse(3*h/8,0,h/8,3);
-	ofEllipse(5*h/16,0,h/16,4);
+	glMatrixMode(GL_MODELVIEW);
+	glTranslatef((index+1)*w/(length+1), h/2+5, 0); // depends on the value of h, the res of screen and size of movie
+	if(active)
+		ofSetColor(r,g,b);
+	else
+		ofSetColor(r,g,b,50);
+	if(active&f) { // animated ronnie
+		glRotatef(180,1,0,0);
+		glRotatef(-direction+48,0,0,1);
+	} else glRotatef(direction+48,0,0,1);
+	ro.draw(-h/2,-h/2,h,h);
+	glEnd();
 	glPopMatrix();
 	ofNoFill();
 }
@@ -184,20 +188,23 @@ void Spermz::desactivateTracking(int i,float r){
 		justSelected=false;
 		direction=0;
 		x=y=-r;
-		for (int j=index+1;j<length;j++) proximityVector[j]=-1;
 	}
 }
 
 //--------------------------------------------------------------
 void Spermz::loosingTracking(int nfi,int nf,float r){
 	lostFrames++;
+	if(justSelected) // do not send a valid position if tracking not started
+		x=y=-r;
 	translatePos();
 	trackLength--;
 	if (trackLength<0) trackLength=0;
 	if(justSelected) // desactivate tracking quickly if unable to track
 		desactivateTracking(nfi,r);
-	else
+	else {
+		radius++; // increase capture radius when tracking is getting lost
 		desactivateTracking(nf,r);
+	}
 }
 
 //--------------------------------------------------------------
@@ -221,38 +228,42 @@ void Spermz::activateTracking(float nx,float ny){
 }
 
 //--------------------------------------------------------------
-void Spermz::proximityTracks(Spermz s[],float maxdis) {
-	for(int j=index+1;j<length;j++) {
-		if(!s[j].active) proximityVector[j]=-1;
-		else proximityVector[j]=distance(s[j].x,s[j].y)/maxdis; // normalized distance
-	}
-}
-
-//--------------------------------------------------------------
-void Spermz::displayConnections(Spermz s[]) { // change thickness with distance ??
-	ofSetColor(r,g,b,50);
-	for(int j=index+1;j<length;j++)
-		if(s[j].active) {
-			ofLine(x,y,s[j].x,s[j].y);
-			ofSetColor(s[j].r,(s[j].g,(s[j].b,50);
-			ofLine(x,y,s[j].x,s[j].y);
+void Spermz::proximityTracks(Spermz s[],int w,int h) {
+	if(!active) for(int j=index+1;j<length;j++) proximityVector[j]=-1;
+	else
+		for(int j=index+1;j<length;j++) {
+			if(!s[j].active) proximityVector[j]=-1;
+			else proximityVector[j]=distance(s[j].x,s[j].y)/sqrt(w*w+h*h);
 		}
 }
 
 //--------------------------------------------------------------
-void Spermz::sendOSC(ofxOscSender send,float offX,float offY) {
+void Spermz::displayConnections(Spermz s[]) {
+	for(int j=index+1;j<length;j++)
+		if(s[j].active) {
+			glLineWidth(10*(1-proximityVector[j]));
+			ofSetColor(r,g,b,100);
+			ofLine(x,y,s[j].x,s[j].y);
+			ofSetColor(s[j].r,s[j].g,s[j].b,50);
+			ofLine(x,y,s[j].x,s[j].y);
+			glLineWidth(2);
+		}
+}
+
+//--------------------------------------------------------------
+void Spermz::sendOSC(ofxOscSender send,float offX,float offY,int w,int h) {
 	ofxOscMessage m;
 	stringstream ss;
 	string str;
 	ss << index;
 	ss >> str;
 	m.setAddress( "/sz"+str );
-	m.addFloatArg(x-offX); // send x
-	m.addFloatArg(y-offY); // send y
-	m.addFloatArg(direction); // send direction (in degrees)
-	// send distance to other tracks
+	m.addFloatArg((x-offX)/w); // send normalized x
+	m.addFloatArg((y-offY)/h); // send normalized y
+	m.addFloatArg(direction); // send direction (in degrees: -180 to 180)
+	// send normalized (to the diagonal) distance to other tracks
 	// -1 means not active track
-	// order (example for NUM_SPERMZ=3) is 01 02 03 12 13 23
+	// order (example for NUM_SPERMZ=3) is 01 02 03 then 12 13 and finally 23
 	for(int j=index+1;j<length;j++) m.addFloatArg(proximityVector[j]);
 	send.sendMessage( m );
 }

@@ -6,7 +6,7 @@ void testApp::setup(){
 #ifdef LIVE_VIDEO
 	spermMovie.setVerbose(true);
 	spermMovie.initGrabber(MOVIE_WIDTH,MOVIE_HEIGHT);
-	//spermMovie.listDevices();
+	spermMovie.listDevices();
 #else
 	spermMovie.loadMovie("movies/macam movie 2.mov");
 	spermMovie.play();
@@ -26,11 +26,12 @@ void testApp::setup(){
 	mode=modeTrace=0;
 	numFrames=40;
 	numFramesInit=15;
+	flip=false;
 	trace=true;
 	fillMode=true;
-	connect=false;
+	connect=true;
 	irX=irY=mouseX=mouseY=-100;
-	windowLength=5;
+	windowLength=10;
 	sperm = new Spermz[NUM_SPERMZ];
 	for (int i=0;i<NUM_SPERMZ;i++)
 		sperm[i].initTrack(i,NUM_SPERMZ,initRadius,0); // color and some initializations !
@@ -40,16 +41,18 @@ void testApp::setup(){
 	// other settings
 	ofNoFill();
 	ofEnableAlphaBlending();
+	glLineWidth(2);
 #ifdef DEBUG
-	posX=0;posY=0;
+	posX=(ofGetWidth()-MOVIE_WIDTH)/2;posY=(ofGetHeight()-MOVIE_HEIGHT)/2;
 #else
 	posX=(ofGetWidth()-MOVIE_WIDTH)/2;posY=(ofGetHeight()-MOVIE_HEIGHT)/2; // for dual screen
 #endif
+	ronnie.loadImage("pants_pal.png");
 }
 
 //--------------------------------------------------------------
 void testApp::update(){
-	ofBackground(100,100,100);
+	ofBackground(50,50,50);
 	// camera or movie
 #ifdef LIVE_VIDEO
 	spermMovie.grabFrame();
@@ -75,7 +78,7 @@ void testApp::draw(){
 	// display movie/camera
 #ifdef DEBUG
 	currFrame.draw(posX,posY);
-	grayDiff.draw(posX+spermMovie.width+10,posY);
+	//grayDiff.draw(posX+spermMovie.width+10,posY);
 #else
 	currFrame.draw(posX,posY);
 #endif
@@ -86,8 +89,9 @@ void testApp::draw(){
 #endif
 	// Associate a spermatozoid (and only one) with a track
 	// Try to track always the same spermatozoide for a given track
+	flip=!flip; // animated ronnie
 	for (int j=0;j<NUM_SPERMZ;j++) {
-	    sperm[j].displayInfos(800,50);
+		sperm[j].displayInfos(ronnie,800,50,flip);
 		bool foundBlobs=false;
 		float distance=1000; // arbitrary large distance
 		float distanceCurr;
@@ -108,6 +112,7 @@ void testApp::draw(){
 				}
 			}
 			if (trace) sperm[j].drawTrace(modeTrace,mode,posX,posY);
+			if(connect) sperm[j].displayConnections(sperm);
 			// manage tracking
 			if(!foundBlobs) {
 				sperm[j].loosingTracking(numFramesInit,numFrames,initRadius);
@@ -115,26 +120,22 @@ void testApp::draw(){
 				sperm[j].drawBlob(contourFinder.blobs[contourIndex],mode,fillMode,posX,posY);
 				sperm[j].update(radius,contourFinder.blobs[contourIndex].centroid.x+posX,contourFinder.blobs[contourIndex].centroid.y+posY);
 				sperm[j].computeTrace(TRACE_LENGTH,contourFinder.blobs[contourIndex]); // needed for computing direction
-				sperm[j].computeDirection(windowLength);
 			}
-			if(connect) sperm[j].displayConnections(sperm);
+			sperm[j].computeDirection(windowLength);
 		}
 	}
-	for (int j=0;j<NUM_SPERMZ;j++)
-		if(sperm[j].active) {
-			sperm[j].proximityTracks(sperm,sqrt(pow(spermMovie.width,2)+pow(spermMovie.height,2)));
-			sperm[j].sendOSC(sender,posX,posY);
-		}
+	for (int j=0;j<NUM_SPERMZ;j++) {
+		sperm[j].proximityTracks(sperm,spermMovie.width,spermMovie.height);
+	    sperm[j].sendOSC(sender,posX,posY,spermMovie.width,spermMovie.height);
+	}
 	ofSetColor(0xffffff);
-#ifdef DEBUG
+	ofRect(posX,posY,spermMovie.width,spermMovie.height); // movie frame
+	ofDrawBitmapString("23N! \"Sound of Life\"", 560, 560); // signature
+/*#ifdef DEBUG
 	char reportStr[1024];
 	sprintf(reportStr, "threshold %i (press: +/-)\nnum blobs found %i\nIR X and Y : %f, %f (size: %f)", threshold, contourFinder.nBlobs,irX,irY,irSize);
 	ofDrawBitmapString(reportStr, 20, 500);
-	sprintf(reportStr, "min area %i (press: q/a)\nmax area %i (press:w/s)\n", minArea, maxArea);
-	ofDrawBitmapString(reportStr, 20, 540);
-	sprintf(reportStr, "Frames (lost tracking): %i (press: </>)", numFrames);
-	ofDrawBitmapString(reportStr, 20, 570);
-#endif
+#endif*/
 }
 
 //--------------------------------------------------------------
@@ -158,12 +159,27 @@ void testApp::receiveOSC(){
 				if (selectedSpermz==NUM_SPERMZ) selectedSpermz=0;
 			}
 		}
-		// Change track
+		// Desactivate tracking
 		if (  m.getAddress() =="/wii/button/b") {
+			if (m.getArgAsInt32( 0 )==1)
+				sperm[selectedSpermz].desactivateTracking(-1,initRadius);
+		}
+		// Change track
+		if (  m.getAddress() =="/wii/button/right") {
 			if (m.getArgAsInt32( 0 )==1) {
 				selectedSpermz++;
 				if (selectedSpermz==NUM_SPERMZ) selectedSpermz=0;
 			}
+		}
+		if (  m.getAddress() =="/wii/button/left") {
+			if (m.getArgAsInt32( 0 )==1) {
+				selectedSpermz--;
+				if (selectedSpermz<0) selectedSpermz=NUM_SPERMZ-1;
+			}
+		}
+		if (  m.getAddress() =="/wii/button/one") {
+			if (m.getArgAsInt32( 0 )==1)
+				connect=!connect;
 		}
 	}
 }
@@ -176,9 +192,16 @@ void testApp::keyPressed  (int key){
 			spermMovie.videoSettings();
 #endif
 			break;
-		case 'b': // simulate B button of wiimote
+		case OF_KEY_RIGHT: // track + (right wiimote)
 			selectedSpermz++;
 			if (selectedSpermz==NUM_SPERMZ) selectedSpermz=0;
+			break;
+		case OF_KEY_LEFT: // track + (left wiimote)
+			selectedSpermz--;
+			if (selectedSpermz<0) selectedSpermz=NUM_SPERMZ-1;
+			break;
+		case 'b': //desactivate track = B of wiimote
+			sperm[selectedSpermz].desactivateTracking(-1,initRadius);
 			break;
 		case '+': // threshold +
 			threshold++;
@@ -196,13 +219,6 @@ void testApp::keyPressed  (int key){
 			minArea--;
 			if (minArea < 1) minArea = 1;
 			break;
-		/*case 'w': // max area +
-			maxArea++;
-			break;
-		case 's': // max area -
-			maxArea --;
-			if (maxArea <= minArea) maxArea++;
-			break;*/
 		case 'm': // contour display mode
 			mode++;
 			if (mode > 2) mode=0;
@@ -241,7 +257,7 @@ void testApp::mouseMoved(int x, int y ){
 }	
 
 //--------------------------------------------------------------
-void testApp::mousePressed(int x, int y, int button){ // in case no wiimote is available 
+void testApp::mousePressed(int x, int y, int button){ // A of wiimote
 	sperm[selectedSpermz].activateTracking((float) x,(float) y);
 	selectedSpermz++;
 	if (selectedSpermz==NUM_SPERMZ) selectedSpermz=0;
